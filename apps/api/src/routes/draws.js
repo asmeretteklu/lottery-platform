@@ -42,7 +42,7 @@ router.post('/:lottery_id/execute', roleGuard(['admin', 'super_admin']), async (
 });
 
 // GET /draws/:lottery_id
-router.get('/:lottery_id', async (req, res) => {
+router.get('/:lottery_id', roleGuard(['player', 'admin', 'super_admin']), async (req, res) => {
   try {
     const { lottery_id } = req.params;
 

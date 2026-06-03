@@ -1,0 +1,9 @@
+{
+  "name": "mobile",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"TODO: start expo dev server\"",
+    "build": "echo \"TODO: run EAS build\""
+  }
+}

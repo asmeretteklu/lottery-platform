@@ -1,0 +1,9 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"TODO: start express dev server\"",
+    "build": "echo \"TODO: build express api\""
+  }
+}

@@ -453,5 +453,26 @@ router.delete('/:id', roleGuard(['admin', 'super_admin']), async (req, res) => {
   }
 });
 
+// GET /lotteries/:id/winners — returns winning tickets for a completed lottery
+router.get('/:id/winners', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('id, ticket_number, player_id, is_winner, purchased_at, users(full_name, phone)')
+      .eq('lottery_id', id)
+      .eq('is_winner', true)
+      .order('ticket_number', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (err) {
+    console.error('Get winners error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
 

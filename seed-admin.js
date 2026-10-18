@@ -1,13 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
 
-const supabaseUrl = 'https://vpgqfriadablhihvwvmn.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZwZ3FmcmlhZGFibGhpaHZ3dm1uIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQzNzEwOCwiZXhwIjoyMDk2MDEzMTA4fQ.RxGm7YtiBXAKKAUvm9wiQHmMHEzdkXPrDsQJibf93_8';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function seed() {
   const email = 'admin@lottery.com';
-  const password = 'password123';
+  const password = process.env.SEED_ADMIN_PASSWORD;
   const phone = '+251911000000'; // Mock ET phone
   
   console.log('Creating auth user...');

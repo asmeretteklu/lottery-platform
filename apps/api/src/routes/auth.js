@@ -62,32 +62,59 @@ router.post('/verify-otp', async (req, res) => {
   }
 
   try {
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token,
-      type: 'sms'
-    });
+    let userId;
 
-    if (error || !data.user) {
-      await logAudit('login_failed', { phone, reason: 'Supabase verify failed' });
-      return res.status(401).json({ error: 'Invalid credentials' });
+    if (process.env.NODE_ENV !== 'production' && token === '000000') {
+      // DEV BYPASS: Look up the user by phone, or generate a new UUID
+      const { data: existing } = await supabase.from('users').select('id').eq('phone', phone).single();
+      if (existing) {
+        userId = existing.id;
+      } else {
+        const { randomUUID } = require('crypto');
+        userId = randomUUID();
+      }
+    } else {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone,
+        token,
+        type: 'sms'
+      });
+
+      if (error || !data.user) {
+        await logAudit('login_failed', { phone, reason: 'Supabase verify failed' });
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
+      userId = data.user.id;
     }
 
-    const userId = data.user.id;
-
     // Look up custom user record bypassing RLS (we use SERVICE_ROLE_KEY)
-    const { data: userRecord, error: userError } = await supabase
+    let { data: userRecord, error: userError } = await supabase
       .from('users')
       .select('id, phone, full_name, role, is_active, created_at')
       .eq('id', userId)
       .single();
 
     if (userError || !userRecord) {
-      await logAudit('login_failed', { phone, reason: 'User record not found' }, userId);
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    if (!userRecord.is_active) {
+      // Auto-register player
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          phone: phone,
+          role: 'player',
+          full_name: 'Player',
+          is_active: true
+        })
+        .select('id, phone, full_name, role, is_active, created_at')
+        .single();
+        
+      if (insertError || !newUser) {
+        await logAudit('login_failed', { phone, reason: 'Failed to create user record' }, userId);
+        return res.status(500).json({ error: 'Failed to create user' });
+      }
+      userRecord = newUser;
+      await logAudit('player_self_registered', { phone }, userId);
+    } else if (!userRecord.is_active) {
       await logAudit('login_failed', { phone, reason: 'Account inactive' }, userId);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -187,6 +214,36 @@ router.get('/me', authMiddleware, async (req, res) => {
     res.json(userRecord);
   } catch (error) {
     console.error('Get me error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// 5. PUT /auth/profile
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const { full_name } = req.body;
+    const userId = req.user.userId;
+
+    if (!full_name) {
+      return res.status(400).json({ error: 'full_name is required' });
+    }
+
+    const { data: updatedUser, error } = await supabase
+      .from('users')
+      .update({ full_name })
+      .eq('id', userId)
+      .select('id, phone, full_name, role, created_at')
+      .single();
+
+    if (error || !updatedUser) {
+      return res.status(400).json({ error: 'Failed to update profile' });
+    }
+
+    await logAudit('profile_updated', { full_name }, userId);
+    
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

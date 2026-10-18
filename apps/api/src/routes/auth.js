@@ -1,6 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const { createClient } = require('@supabase/supabase-js');
+const supabase = require('../lib/supabase');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
@@ -8,15 +8,6 @@ const router = express.Router();
 if (!process.env.JWT_SECRET) {
   throw new Error('FATAL: JWT_SECRET is not set in the environment variables.');
 }
-
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('FATAL: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const logAudit = async (action, metadata, actorId = null) => {
   try {
@@ -64,8 +55,9 @@ router.post('/verify-otp', async (req, res) => {
   try {
     let userId;
 
-    if (process.env.NODE_ENV !== 'production' && token === '000000') {
-      // DEV BYPASS: Look up the user by phone, or generate a new UUID
+    if (process.env.NODE_ENV === 'development' && token === '000000') {
+      // DEV BYPASS ONLY — this MUST never execute in staging or production
+      console.warn('[SECURITY] Dev OTP bypass used — only allowed in NODE_ENV=development');
       const { data: existing } = await supabase.from('users').select('id').eq('phone', phone).single();
       if (existing) {
         userId = existing.id;
@@ -123,7 +115,7 @@ router.post('/verify-otp', async (req, res) => {
     const jwtToken = jwt.sign(
       { userId, role: userRecord.role, phone: userRecord.phone },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '2h' }
     );
 
     await logAudit('login_success', { phone, method: 'otp' }, userId);
@@ -184,7 +176,7 @@ router.post('/admin-login', async (req, res) => {
     const jwtToken = jwt.sign(
       { userId, role: userRecord.role, phone: userRecord.phone },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '2h' }
     );
 
     await logAudit('login_success', { email, method: 'password' }, userId);

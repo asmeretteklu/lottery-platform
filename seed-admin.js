@@ -41,7 +41,7 @@ async function seed() {
       console.log('Admin user created successfully!');
     }
   }
-  console.log(`\nLogin Details:\nEmail: ${email}\nPassword: ${password}`);
+  console.log(`\nLogin Details:\nEmail: ${email}\nPassword: [set via SEED_ADMIN_PASSWORD env var]`);
 }
 
 seed();

@@ -1,13 +1,9 @@
 const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
+const supabase = require('../lib/supabase');
 const { authMiddleware, roleGuard } = require('../middleware/auth');
 const { executeDraw } = require('../services/drawEngine');
 
 const router = express.Router();
-
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 router.use(authMiddleware);
 

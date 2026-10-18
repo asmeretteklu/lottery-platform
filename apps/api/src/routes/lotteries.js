@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
-const { createClient } = require('@supabase/supabase-js');
+const supabase = require('../lib/supabase');
 const { authMiddleware, roleGuard } = require('../middleware/auth');
 
 const router = express.Router();
@@ -18,10 +18,6 @@ const upload = multer({
     }
   }
 });
-
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const logAudit = async (action, metadata, actorId = null) => {
   try {
@@ -453,8 +449,8 @@ router.delete('/:id', roleGuard(['admin', 'super_admin']), async (req, res) => {
   }
 });
 
-// GET /lotteries/:id/winners — returns winning tickets for a completed lottery
-router.get('/:id/winners', async (req, res) => {
+// GET /lotteries/:id/winners — returns winning tickets (admin or super_admin only)
+router.get('/:id/winners', authMiddleware, roleGuard(['admin', 'super_admin']), async (req, res) => {
   try {
     const { id } = req.params;
 

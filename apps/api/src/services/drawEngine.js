@@ -1,20 +1,12 @@
 const crypto = require('crypto');
 const Redis = require('ioredis');
-const { createClient } = require('@supabase/supabase-js');
+const supabase = require('../lib/supabase');
 
 if (!process.env.REDIS_URL) {
   throw new Error('FATAL: REDIS_URL must be set.');
 }
 
 const redis = new Redis(process.env.REDIS_URL);
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('FATAL: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 const logAudit = async (action, metadata, actorId = null) => {
   try {
@@ -34,10 +26,10 @@ const executeDraw = async (lottery_id, admin_id) => {
   const lockKey = `draw_lock:${lottery_id}`;
 
   try {
-    // 1. Validate lottery ownership
+    // 1. Validate lottery (and ownership, unless caller is super_admin)
     const { data: lottery, error: lotError } = await supabase
       .from('lotteries')
-      .select('*')
+      .select('*, users!admin_id(role)')
       .eq('id', lottery_id)
       .single();
 
@@ -46,7 +38,16 @@ const executeDraw = async (lottery_id, admin_id) => {
       throw new Error('Lottery not found');
     }
 
-    if (lottery.admin_id !== admin_id) {
+    // Fetch the caller's role to check if they’re a super_admin
+    const { data: callerRecord } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', admin_id)
+      .single();
+
+    const callerIsSuperAdmin = callerRecord?.role === 'super_admin';
+
+    if (!callerIsSuperAdmin && lottery.admin_id !== admin_id) {
       await logAudit('draw_failed', { lottery_id, reason: 'Forbidden' }, admin_id);
       throw new Error('Forbidden');
     }
